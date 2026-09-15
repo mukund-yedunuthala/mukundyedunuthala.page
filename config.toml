@@ -22,8 +22,10 @@ include_content = true
 [markdown.highlighting]
 theme = "catppuccin-frappe"
 style = "class"
-smart_punctuation = true
+
+[markdown]
 bottom_footnotes = true
+smart_punctuation = true
 
 [link_checker]
 internal_level = "warn"
@@ -32,7 +34,15 @@ internal_level = "warn"
 title = "Mukund Yedunuthala"
 description =  "Computational Engineer | Numerical Modeling and High-Performance Computing (HPC) Expert"
 taxonomies = [{ name = "tags", feed = false }]
+build_search_index = true
 
+
+[languages.de.search]
+include_title = true
+include_description = true
+include_path = true
+include_content = true
+index_format = "elasticlunr_json"
 
 [extra]
 language_name.en = "English"
@@ -55,7 +65,7 @@ katex = true
 mermaid = false
 quick_navigation_buttons = true
 toc = true
-long_date_format = "%d %B %Y"
+long_date_format = "dd MMMM y"
 invert_title_order = true
 menu = [
     { name = "About", url = "about", trailing_slash = true },
