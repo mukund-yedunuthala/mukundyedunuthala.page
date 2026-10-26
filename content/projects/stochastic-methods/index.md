@@ -9,7 +9,7 @@ author = "Mukund Yedunuthala"
 tags = ["R", "Academia"]
 
 [extra]
-remote_image = "https://gitlab.com/mukund-yedunuthala/stome-project-ws2020/-/raw/master/image3_09.png?ref_type=heads"
+local_image = "projects/stochastic-methods/img/header.webp"
 show_remote_changes = true
 social_media_card = "img/social_cards/projects_stochastic_methods.jpg"
 +++
