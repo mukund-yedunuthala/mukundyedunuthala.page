@@ -9,8 +9,8 @@ author = "Mukund Yedunuthala"
 tags = ["C++", "High-Performance Computing", "Academia"]
 
 [extra]
-remote_image = "https://gitlab.com/mukund-yedunuthala/hpc-img-convolution/-/raw/main/inputs/512.png?ref_type=heads"
-remote_image_dark = "https://gitlab.com/mukund-yedunuthala/hpc-img-convolution/-/raw/main/output/512edge.png?ref_type=heads"
+local_image = "projects/hpc-img-convolution/img/512.webp"
+local_image_dark = "projects/hpc-img-convolution/img/512-dark.webp"
 show_remote_changes = true
 social_media_card = "img/social_cards/projects_hpc_img_convolution.jpg"
 katex = true

@@ -1,99 +1,173 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
-# 1. MOVE FUNCTIONS TO TOP
-function error_exit() {
+set -uo pipefail
+
+error_exit() {
     echo "ERROR: $1" >&2
     exit "${2:-1}"
 }
 
-# Check if the script is being run from the root of the repo.
-if [[ ! $(git rev-parse --show-toplevel) == $(pwd) ]]; then
-    error_exit "This script must be run from the root of the repo."
-fi
+repo_root=$(git rev-parse --show-toplevel) || error_exit "Not running inside a Git repository."
+cd "$repo_root" || error_exit "Could not change to the repository root."
 
-function extract_date() {
+extract_date() {
     local file="$1"
-    local field="$2"
-    # Added [[:space:]]* to handle variations in TOML spacing
-    grep -m 1 "^$field[[:space:]]*=[[:space:]]*" "$file" | sed -e "s/^$field[[:space:]]*=[[:space:]]*//" -e 's/"//g' -e "s/'//g" -e 's/ *$//'
-}
 
-function has_body_changes() {
-    local file="$1"
-    local count=0
-
-    # Zola front matter is TOML between +++ blocks.
-    # We check if there are changes (indicators % or &) after the second +++
-    diff_output=$(git diff --unified=999 --cached --output-indicator-new='%' --output-indicator-old='&' "$file")
-
-    while read -r line; do
-        if [[ "$line" =~ ^\+\+\+$ ]]; then
-            ((count++))
-        elif [[ $count -ge 2 ]]; then
-            if [[ "$line" =~ ^[\%\&] ]]; then
-                return 0 # Body change detected
-            fi
-        fi
-    done <<< "$diff_output"
-    return 1
-}
-
-function generate_and_commit_card() {
-    local file=$1
-    # Ensure the directory exists for Zola static assets
-    mkdir -p static/img/social_cards
-
-    social_media_card=$(./social-cards-zola -o static/img/social_cards -b http://127.0.0.1:1111 -u -p -i "$file") || return 1
-
-    git add "$social_media_card"
-    git add "$file"
-}
-
-export -f generate_and_commit_card
-
-# 2. CAPTURE MODIFIED FILES
-mapfile -t modified_md_files < <(git diff --cached --name-only --diff-filter=M | grep -Ei '\.md$')
-
-processed_files=()
-
-for file in "${modified_md_files[@]}"; do
-    # Skip if only front matter changed (standard Zola behavior)
-    if ! has_body_changes "$file"; then
-        continue
-    fi
-
-    # Zola-friendly date
-    last_modified_date=$(date -r "$file" +'%Y-%m-%d')
-    date_value=$(extract_date "$file" "date")
-
-    if [[ "$last_modified_date" == "$date_value" ]]; then
-        continue
-    fi
-
-    # Update/Insert "updated" field in TOML
-    if awk -v d="$last_modified_date" '
-    BEGIN { done=0 }
-    /^date =/ && !done {
-        print $0
-        getline next_line
-        if (next_line !~ /^updated =/) {
-            print "updated = " d
-            print next_line
-        } else {
-            print "updated = " d
+    awk '
+        /^\+\+\+$/ { delimiters++; next }
+        delimiters == 1 && /^[[:space:]]*date[[:space:]]*=/ {
+            sub(/^[^=]*=[[:space:]]*/, "")
+            gsub(/"/, "")
+            sub(/[[:space:]]*$/, "")
+            print
+            exit
         }
-        done=1; next
-    }
-    { print }' "$file" > "${file}.tmp"; then
-        mv "${file}.tmp" "$file"
-        git add "$file"
-        processed_files+=("$file")
-    else
-        rm -f "${file}.tmp"
-    fi
-done
+    ' "$file"
+}
 
-# 3. RUN PARALLEL ON PROCESSED FILES
-if [[ ${#processed_files[@]} -gt 0 ]]; then
-    printf "%s\n" "${processed_files[@]}" | parallel -j 8 generate_and_commit_card
-fi
+extract_body() {
+    awk '
+        /^\+\+\+$/ && delimiters < 2 { delimiters++; next }
+        delimiters >= 2 { print }
+    ' "$1"
+}
+
+has_body_changes() {
+    local file="$1"
+    local temp_dir
+    temp_dir=$(mktemp -d) || return 2
+
+    if ! git show ":$file" > "$temp_dir/index"; then
+        rm -rf "$temp_dir"
+        return 2
+    fi
+
+    if git rev-parse --verify HEAD >/dev/null 2>&1 && git cat-file -e "HEAD:$file" 2>/dev/null; then
+        if ! git show "HEAD:$file" > "$temp_dir/head"; then
+            rm -rf "$temp_dir"
+            return 2
+        fi
+    else
+        : > "$temp_dir/head"
+    fi
+
+    extract_body "$temp_dir/head" > "$temp_dir/head-body"
+    extract_body "$temp_dir/index" > "$temp_dir/index-body"
+    if cmp -s "$temp_dir/head-body" "$temp_dir/index-body"; then
+        rm -rf "$temp_dir"
+        return 1
+    fi
+
+    rm -rf "$temp_dir"
+    return 0
+}
+
+update_modified_date() {
+    local file="$1"
+    local modified_date="$2"
+    local temp_file
+    temp_file=$(mktemp "${file}.tmp.XXXXXX") || return 1
+
+    if ! awk -v d="$modified_date" '
+        function flush_front_matter(    i, has_date, has_updated, in_table, updated_written) {
+            in_table = 0
+            has_date = has_updated = updated_written = 0
+            for (i = 1; i <= count; i++) {
+                if (lines[i] ~ /^[[:space:]]*\[/) in_table = 1
+                top_level[i] = !in_table
+                if (top_level[i] && lines[i] ~ /^[[:space:]]*date[[:space:]]*=/) has_date = 1
+                if (top_level[i] && lines[i] ~ /^[[:space:]]*updated[[:space:]]*=/) has_updated = 1
+            }
+
+            for (i = 1; i <= count; i++) {
+                if (top_level[i] && lines[i] ~ /^[[:space:]]*updated[[:space:]]*=/) {
+                    if (!updated_written) {
+                        print "updated = \"" d "\""
+                        updated_written = 1
+                    }
+                } else {
+                    print lines[i]
+                    if (has_date && !has_updated && top_level[i] && lines[i] ~ /^[[:space:]]*date[[:space:]]*=/) {
+                        print "updated = \"" d "\""
+                        updated_written = 1
+                    }
+                }
+            }
+            delete lines
+            delete top_level
+            count = 0
+        }
+
+        /^\+\+\+$/ {
+            delimiters++
+            if (delimiters == 1) {
+                print
+                next
+            }
+            if (delimiters == 2) {
+                flush_front_matter()
+                print
+                next
+            }
+        }
+
+        delimiters == 1 { lines[++count] = $0; next }
+        { print }
+
+        END {
+            if (delimiters == 1) flush_front_matter()
+        }
+    ' "$file" > "$temp_file"; then
+        rm -f "$temp_file"
+        return 1
+    fi
+
+    chmod --reference="$file" "$temp_file" || { rm -f "$temp_file"; return 1; }
+    if ! mv "$temp_file" "$file"; then
+        rm -f "$temp_file"
+        return 1
+    fi
+}
+
+generate_and_stage_card() {
+    local file="$1"
+    local social_media_card
+
+    mkdir -p static/img/social_cards || return 1
+    if ! social_media_card=$(./social-cards-zola -o static/img/social_cards -b http://127.0.0.1:1111 -u -p -i "$file"); then
+        echo "ERROR: Social card generation failed for '$file'. Is Zola serving on http://127.0.0.1:1111?" >&2
+        return 1
+    fi
+    if [[ -z "$social_media_card" ]]; then
+        echo "ERROR: Social card generator returned no output path for '$file'." >&2
+        return 1
+    fi
+
+    git add -- "$social_media_card" "$file"
+}
+
+mapfile -d '' -t staged_md_files < <(git diff --cached --name-only -z --diff-filter=AMR --)
+
+for file in "${staged_md_files[@]}"; do
+    [[ "${file,,}" == *.md ]] || continue
+
+    if has_body_changes "$file"; then
+        :
+    else
+        body_status=$?
+        if [[ $body_status -eq 1 ]]; then
+            continue
+        fi
+        error_exit "Could not inspect staged content for '$file'."
+    fi
+
+    last_modified_date=$(date -r "$file" +'%Y-%m-%d') || error_exit "Could not read modification date for '$file'."
+    date_value=$(extract_date "$file") || error_exit "Could not read the date in '$file'."
+
+    if [[ "$last_modified_date" != "$date_value" ]]; then
+        update_modified_date "$file" "$last_modified_date" || error_exit "Could not update the modified date in '$file'."
+        git add -- "$file" || error_exit "Could not stage '$file'."
+    fi
+
+    generate_and_stage_card "$file" || error_exit "Failed to generate or stage a social card for '$file'."
+done

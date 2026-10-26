@@ -1,7 +1,7 @@
 +++
 title = "Application of statistical learning to predict material properties"
 date = 2022-03-27
-updated = 2026-04-07
+updated = "2026-10-26"
 
 description = "Demonstrative project to construct a locally weighted regression based gradient boosting machine to predict material properties."
 weight = 4
@@ -9,7 +9,7 @@ weight = 4
 tags = ["Python", "Academia"]
 
 [extra]
-local_image = "projects/gbm-ml-ws2021/img/Pasted image 20260407200804.png"
+local_image = "projects/gbm-ml-ws2021/img/scatter-plot.webp"
 social_media_card = "img/social_cards/projects_gbm_ml_ws2021.jpg"
 invertible_image = true
 +++
@@ -66,8 +66,8 @@ This programming project succeeeds in learning the VRH averages of elastic bulk 
 
 <table>
   <tr>
-    <td><img src="img/Pasted image 20260407200804.png" alt="" width="360"></td>
-    <td><img src="img/Pasted image 20260407200841.png" alt="" width="360"></td>
+      <td><img src="img/scatter-plot.webp" alt="" width=""></td>
+      <td><img src="img/scatter-plot-2.webp" alt="" width=""></td>
   </tr>
 </table>
 <div align="center">

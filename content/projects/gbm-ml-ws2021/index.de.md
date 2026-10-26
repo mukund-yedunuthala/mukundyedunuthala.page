@@ -1,7 +1,7 @@
 +++
 title = "Application of statistical learning to predict material properties"
 date = 2022-03-27
-updated = 2026-04-07
+updated = "2026-10-26"
 
 description = "Demonstrationsprojekt zur Konstruktion einer Gradient-Boosting-Maschine auf Basis der lokalen Regression für die Vorhersage von Materialeigenschaften."
 weight = 4
@@ -9,8 +9,9 @@ weight = 4
 tags = ["Python", "Academia"]
 
 [extra]
-local_image = "projects/gbm-ml-ws2021/img/proj_pppws21_tn.png"
+local_image = "projects/gbm-ml-ws2021/img/scatter-plot.webp"
 social_media_card = "img/social_cards/de_projects_gbm_ml_ws2021.jpg"
+invertible_image = true
 +++
 This is a programming project to demonstrate that machine learning approaches could be used to harvest traits present in some data to aid materials research. 
 
@@ -64,8 +65,8 @@ This programming project succeeeds in learning the VRH averages of elastic bulk 
 
 <table>
   <tr>
-    <td><img src="Pasted image 20260407200804.png" alt="" width="360"></td>
-    <td><img src="Pasted image 20260407200841.png" alt="" width="360"></td>
+    <td><img src="img/scatter-plot.webp" alt="" width=""></td>
+    <td><img src="img/scatter-plot-2.webp" alt="" width=""></td>
   </tr>
 </table>
 <div align="center">
